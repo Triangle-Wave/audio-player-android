@@ -1,0 +1,34 @@
+pluginManagement {
+    def repositoryProfilePath = System.getenv("GRADLE_REPOSITORIES_FILE") ?: "gradle/repositories.local.properties"
+    def repositoryProfile = new Properties()
+    file(repositoryProfilePath).withInputStream { repositoryProfile.load(it) }
+
+    def flutterSdkPath = {
+        def properties = new Properties()
+        file("local.properties").withInputStream { properties.load(it) }
+        def flutterSdkPath = properties.getProperty("flutter.sdk")
+        assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+        return flutterSdkPath
+    }()
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        repositoryProfile.getProperty("pluginRepositories", "")
+            .split(",")
+            .collect { it.trim() }
+            .findAll { !it.isEmpty() }
+            .each { repositoryUrl -> maven { url repositoryUrl } }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+    id "com.android.application" version "8.1.0" apply false
+    id "org.jetbrains.kotlin.android" version "1.8.22" apply false
+}
+
+include ":app"

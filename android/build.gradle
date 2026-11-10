@@ -1,0 +1,44 @@
+def repositoryProfilePath = System.getenv("GRADLE_REPOSITORIES_FILE") ?: "gradle/repositories.local.properties"
+def repositoryProfile = new Properties()
+file(repositoryProfilePath).withInputStream { repositoryProfile.load(it) }
+
+allprojects {
+    repositories {
+        repositoryProfile.getProperty("dependencyRepositories", "")
+            .split(",")
+            .collect { it.trim() }
+            .findAll { !it.isEmpty() }
+            .each { repositoryUrl -> maven { url repositoryUrl } }
+        google()
+        mavenCentral()
+    }
+}
+
+// 各插件子工程自带 buildscript 仓库只有 google()/mavenCentral()，Maven Central 直连不可达时
+// 其构建类路径依赖（如 AGP 的 guava/kotlin-stdlib 传递依赖）会解析失败；
+// 这里把同一份镜像列表注入每个子工程的 buildscript，保证类路径依赖也能走镜像。
+subprojects {
+    buildscript {
+        repositories {
+            repositoryProfile.getProperty("dependencyRepositories", "")
+                .split(",")
+                .collect { it.trim() }
+                .findAll { !it.isEmpty() }
+                .each { repositoryUrl -> maven { url repositoryUrl } }
+            google()
+            mavenCentral()
+        }
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

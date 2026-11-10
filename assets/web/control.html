@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>音频播放器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 16px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(0, 212, 128, 0.2);
+            color: #00d480;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(255, 82, 82, 0.2);
+            color: #ff5252;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .connected .status-dot {
+            background: #00d480;
+            box-shadow: 0 0 10px #00d480;
+        }
+
+        .disconnected .status-dot {
+            background: #ff5252;
+            box-shadow: 0 0 10px #ff5252;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.9); }
+        }
+
+        .now-playing {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .play-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .play-icon.playing {
+            animation: playing-glow 1.5s ease-in-out infinite;
+        }
+
+        @keyframes playing-glow {
+            0%, 100% { box-shadow: 0 10px 40px rgba(0, 212, 255, 0.3); }
+            50% { box-shadow: 0 10px 60px rgba(123, 47, 247, 0.5); }
+        }
+
+        .track-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-status {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 12px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .file-list {
+            max-height: 240px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+
+        .file-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .file-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+
+        .file-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 14px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(4px);
+        }
+
+        .file-item.selected {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: #00d4ff;
+        }
+
+        .file-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 11px;
+            margin-right: 12px;
+            text-transform: uppercase;
+        }
+
+        .file-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .file-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-size {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        .file-check {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .file-item.selected .file-check {
+            background: #00d4ff;
+            color: #fff;
+        }
+
+        .volume-section {
+            margin-bottom: 20px;
+        }
+
+        .volume-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .volume-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .volume-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .volume-slider-container {
+            position: relative;
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .vol-step-btn {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 212, 255, 0.4);
+            background: rgba(0, 212, 255, 0.08);
+            color: #00d4ff;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+
+        .vol-step-btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .vol-step-btn:active {
+            transform: scale(0.9);
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+            transition: transform 0.2s ease;
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .volume-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .quick-vol-btns {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .quick-vol-btn {
+            flex: 1;
+            padding: 8px 0;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .quick-vol-btn:hover {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+
+        .quick-vol-btn:active {
+            transform: scale(0.95);
+        }
+
+        .quick-vol-btn.active {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .mode-btn.active {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            transition: all 0.2s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .input-group select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .time-input-wrapper {
+            position: relative;
+        }
+
+        .time-input-wrapper .unit {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .time-input-wrapper input {
+            padding-right: 50px;
+        }
+
+        .time-only-input {
+            font-size: 18px !important;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            color: #fff;
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 8px 35px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn-primary:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.3);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: rgba(255, 82, 82, 0.2);
+            color: #ff5252;
+            border: 2px solid rgba(255, 82, 82, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 82, 82, 0.3);
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .progress-info {
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #00d4ff;
+            text-align: center;
+            display: none;
+        }
+
+        .progress-info.visible {
+            display: block;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+            border-radius: 2px;
+            transition: width 1s linear;
+            width: 0%;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* ===== 折叠条（默认隐藏，仅移动端显示）===== */
+        .collapse-toggle {
+            display: none;
+        }
+
+        /* ===== 移动端布局（≤768px）===== */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .card {
+                padding: 14px;
+                border-radius: 18px;
+                margin-bottom: 10px;
+            }
+
+            .header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                text-align: left;
+                margin-bottom: 12px;
+            }
+
+            .header h1 {
+                font-size: 18px;
+                margin-bottom: 0;
+            }
+
+            .connection-status {
+                padding: 4px 10px;
+                font-size: 11px;
+            }
+
+            .now-playing {
+                padding: 10px 0 4px;
+            }
+
+            .play-icon {
+                width: 56px;
+                height: 56px;
+                font-size: 24px;
+                margin-bottom: 10px;
+            }
+
+            .track-name {
+                font-size: 15px;
+            }
+
+            .stats-grid {
+                gap: 8px;
+                margin-top: 12px;
+            }
+
+            .stat-item {
+                padding: 8px 4px;
+                border-radius: 10px;
+            }
+
+            .stat-value {
+                font-size: 17px;
+            }
+
+            .section-title {
+                display: none;
+            }
+
+            .collapse-toggle {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: 100%;
+                min-height: 44px;
+                padding: 4px 2px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-family: inherit;
+                font-size: 14px;
+                font-weight: 600;
+                color: #fff;
+                text-align: left;
+            }
+
+            .collapse-toggle .collapse-label {
+                flex: 1;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+
+            .collapse-arrow {
+                font-size: 12px;
+                color: rgba(255, 255, 255, 0.6);
+                transition: transform 0.3s ease;
+            }
+
+            .collapse-toggle.expanded .collapse-arrow {
+                transform: rotate(180deg);
+            }
+
+            .collapse-body {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.35s ease;
+            }
+
+            .file-card.expanded .collapse-body {
+                max-height: 42vh;
+                overflow-y: auto;
+            }
+
+            .settings-card.expanded .collapse-body {
+                /* 音量控件已移至首屏，剩余内容约 40vh，上限贴近实际高度避免空动画 */
+                max-height: 45vh;
+                overflow-y: auto;
+            }
+
+            .file-list {
+                max-height: none;
+                margin-bottom: 8px;
+            }
+
+            .file-item {
+                padding: 12px;
+            }
+
+            .progress-info {
+                padding: 10px 12px;
+                font-size: 12px;
+                margin-top: 12px;
+                margin-bottom: 12px;
+            }
+
+            .btn {
+                padding: 18px;
+                font-size: 16px;
+            }
+
+            .btn-group {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-top: 14px;
+            }
+
+            .play-card .volume-section {
+                margin: 16px 0 0;
+                padding: 12px 14px;
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 14px;
+            }
+
+            .play-card .system-volume-section {
+                margin-top: 18px;
+                padding: 8px 14px;
+                background: rgba(255, 255, 255, 0.03);
+                border-color: rgba(255, 255, 255, 0.06);
+            }
+
+            .play-card .system-volume-section .volume-label {
+                font-size: 12px;
+                color: rgba(255, 255, 255, 0.5);
+            }
+
+            .play-card .system-volume-section .volume-value {
+                font-size: 12px;
+            }
+
+            .play-card .system-volume-section .volume-slider-container {
+                padding: 4px 0;
+            }
+
+            .play-card .system-volume-section .volume-hint {
+                display: none;
+            }
+
+            .input-group input,
+            .input-group select {
+                padding: 12px;
+                font-size: 15px;
+            }
+
+            .mode-btn {
+                padding: 10px;
+            }
+
+            .quick-vol-btn {
+                padding: 10px 0;
+            }
+
+            .volume-slider::-webkit-slider-thumb {
+                width: 26px;
+                height: 26px;
+            }
+
+            .volume-slider::-moz-range-thumb {
+                width: 26px;
+                height: 26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card play-card">
+            <div class="header">
+                <h1>🎵 音频播放器</h1>
+                <div class="connection-status disconnected" id="connection-status">
+                    <span class="status-dot"></span>
+                    <span id="connection-text">未连接</span>
+                </div>
+            </div>
+
+            <div class="now-playing">
+                <div class="play-icon" id="play-icon">🎵</div>
+                <div class="track-name" id="track-name">未选择文件</div>
+                <div class="track-status" id="track-status">选择文件开始播放</div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="elapsed-time">00:00</div>
+                    <div class="stat-label">已播放</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="loop-count">0</div>
+                    <div class="stat-label">循环次数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="remaining-time">--:--</div>
+                    <div class="stat-label">剩余</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card file-card">
+            <button class="collapse-toggle" id="file-toggle" aria-expanded="false" aria-controls="file-collapse-body">
+                <span>📁</span>
+                <span class="collapse-label" id="file-toggle-label">选择文件</span>
+                <span class="collapse-arrow">▾</span>
+            </button>
+            <div class="section-title">选择文件</div>
+            <div class="collapse-body" id="file-collapse-body">
+                <button class="refresh-btn" id="refresh-files">🔄 刷新列表</button>
+                <div class="file-list" id="file-list">
+                    <div class="empty-state">
+                        <div class="icon">📂</div>
+                        <p>正在加载...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card settings-card">
+            <button class="collapse-toggle" id="settings-toggle" aria-expanded="false" aria-controls="settings-collapse-body">
+                <span>⚙️</span>
+                <span class="collapse-label">播放设置</span>
+                <span class="collapse-arrow">▾</span>
+            </button>
+            <div class="section-title">播放设置</div>
+            <div class="collapse-body" id="settings-collapse-body">
+            
+            <div class="volume-section system-volume-section">
+                <div class="volume-header">
+                    <span class="volume-label">💻 系统音量</span>
+                    <span class="volume-value" id="system-volume-value">--%</span>
+                </div>
+                <div class="volume-slider-container">
+                    <button type="button" class="vol-step-btn" data-target="system-volume-slider" data-step="-1" aria-label="系统音量减 1">−</button>
+                    <input type="range" class="volume-slider" id="system-volume-slider" min="0" max="100" value="100">
+                    <button type="button" class="vol-step-btn" data-target="system-volume-slider" data-step="1" aria-label="系统音量加 1">+</button>
+                </div>
+                <div class="volume-hint">控制Windows系统主音量</div>
+            </div>
+
+            <div class="volume-section play-volume-section">
+                <div class="volume-header">
+                    <span class="volume-label">🔊 播放音量</span>
+                    <span class="volume-value" id="volume-value">100%</span>
+                </div>
+                <div class="quick-vol-btns">
+                    <button class="quick-vol-btn" data-vol="20">20</button>
+                    <button class="quick-vol-btn" data-vol="25">25</button>
+                    <button class="quick-vol-btn" data-vol="30">30</button>
+                    <button class="quick-vol-btn" data-vol="35">35</button>
+                </div>
+                <div class="volume-slider-container">
+                    <button type="button" class="vol-step-btn" data-target="volume-slider" data-step="-1" aria-label="播放音量减 1">−</button>
+                    <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
+                    <button type="button" class="vol-step-btn" data-target="volume-slider" data-step="1" aria-label="播放音量加 1">+</button>
+                </div>
+                <div class="volume-hint" id="volume-hint">拖动即时调节播放音量</div>
+            </div>
+            
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="duration">按时长</button>
+                <button class="mode-btn" data-mode="endtime">按时间</button>
+            </div>
+
+            <div id="duration-mode">
+                <div class="input-group">
+                    <label>目标播放时长</label>
+                    <div class="time-inputs">
+                        <div class="time-input-wrapper">
+                            <input type="number" id="duration-hours" min="0" max="23" value="0" placeholder="0">
+                            <span class="unit">小时</span>
+                        </div>
+                        <div class="time-input-wrapper">
+                            <input type="number" id="duration-minutes" min="0" max="59" value="30" placeholder="30">
+                            <span class="unit">分钟</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="endtime-mode" style="display: none;">
+                <div class="input-group">
+                    <label>结束时间（播放到该时间点停止）</label>
+                    <input type="time" id="end-time" class="time-only-input" value="07:00">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>音频输出设备</label>
+                <select id="audio-device">
+                    <option value="default">默认音频设备</option>
+                </select>
+            </div>
+
+            </div>
+
+            <div class="progress-info" id="progress-info">
+                <span id="progress-text"></span>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="play-btn" disabled>▶ 开始播放</button>
+                <button class="btn btn-danger" id="stop-btn" disabled>⏹ 停止</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'audio-player-settings';
+
+        function loadSettings() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('加载设置失败:', e);
+            }
+            return {
+                mode: 'duration',
+                hours: 0,
+                minutes: 30,
+                endTime: '07:00',
+                volume: 100
+            };
+        }
+
+        function saveSettings(settings) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+            } catch (e) {
+                console.error('保存设置失败:', e);
+            }
+        }
+
+        const savedSettings = loadSettings();
+
+        let state = {
+            isPlaying: false,
+            currentFile: null,
+            elapsedSeconds: 0,
+            targetDuration: null,
+            loopCount: 0,
+            audioDevice: 'default',
+            volume: savedSettings.volume,
+            systemVolume: 100,
+            isFadingOut: false,
+        };
+
+        let selectedFile = null;
+        let files = [];
+        let mode = savedSettings.mode;
+
+        function formatTime(seconds) {
+            if (seconds === null || seconds === undefined) return '--:--';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = Math.floor(seconds % 60);
+            if (h > 0) {
+                return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function getFileExtension(filename) {
+            return filename.split('.').pop().toLowerCase();
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, ch => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[ch]));
+        }
+
+        function updateUI() {
+            const playIcon = document.getElementById('play-icon');
+            const trackName = document.getElementById('track-name');
+            const trackStatus = document.getElementById('track-status');
+            
+            if (state.isPlaying) {
+                playIcon.textContent = '🎶';
+                playIcon.classList.add('playing');
+                if (state.isFadingOut) {
+                    trackStatus.textContent = '淡出中...';
+                    playIcon.textContent = '🔇';
+                } else {
+                    trackStatus.textContent = '正在播放...';
+                }
+            } else {
+                playIcon.textContent = '🎵';
+                playIcon.classList.remove('playing');
+                trackStatus.textContent = selectedFile ? '准备就绪' : '选择文件开始播放';
+            }
+            
+            trackName.textContent = state.currentFile || selectedFile || '未选择文件';
+
+            document.getElementById('elapsed-time').textContent = formatTime(state.elapsedSeconds);
+            document.getElementById('loop-count').textContent = state.loopCount;
+            
+            if (state.targetDuration && state.isPlaying) {
+                const remaining = Math.max(0, state.targetDuration - state.elapsedSeconds);
+                document.getElementById('remaining-time').textContent = formatTime(remaining);
+                document.getElementById('progress-text').textContent = 
+                    `目标: ${formatTime(state.targetDuration)} | 剩余: ${formatTime(remaining)}`;
+                const progress = Math.min(100, (state.elapsedSeconds / state.targetDuration) * 100);
+                document.getElementById('progress-bar').style.width = progress + '%';
+                document.getElementById('progress-info').classList.add('visible');
+            } else {
+                document.getElementById('remaining-time').textContent = '--:--';
+                document.getElementById('progress-bar').style.width = '0%';
+                document.getElementById('progress-info').classList.remove('visible');
+            }
+
+            document.getElementById('play-btn').disabled = !selectedFile || state.isPlaying;
+            document.getElementById('stop-btn').disabled = !state.isPlaying;
+            
+            document.getElementById('play-btn').textContent = state.isPlaying ? '播放中...' : '▶ 开始播放';
+            document.getElementById('stop-btn').textContent = state.isFadingOut ? '淡出中...' : '⏹ 停止';
+            
+            document.getElementById('volume-slider').value = state.volume;
+            document.getElementById('volume-value').textContent = state.volume + '%';
+
+            document.querySelectorAll('.quick-vol-btn').forEach(b => {
+                b.classList.toggle('active', parseInt(b.dataset.vol) === state.volume);
+            });
+
+            if (state.systemVolume !== undefined && state.systemVolume >= 0) {
+                document.getElementById('system-volume-slider').value = state.systemVolume;
+                document.getElementById('system-volume-value').textContent = state.systemVolume + '%';
+            }
+
+            updateFileToggleLabel();
+        }
+
+        function renderFiles() {
+            const container = document.getElementById('file-list');
+            if (files.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📂</div>
+                        <p>没有找到音频文件</p>
+                        <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">请将文件放入 uploads 文件夹</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = files.map(file => {
+                const ext = getFileExtension(file.name);
+                const isSelected = selectedFile === file.name;
+                return `
+                    <div class="file-item ${isSelected ? 'selected' : ''}" data-file="${escapeHtml(file.name)}">
+                        <div class="file-icon">${escapeHtml(ext)}</div>
+                        <div class="file-info">
+                            <div class="file-name">${escapeHtml(file.name)}</div>
+                            <div class="file-size">${escapeHtml(file.size)}</div>
+                        </div>
+                        <div class="file-check">✓</div>
+                    </div>`;
+            }).join('');
+
+            container.querySelectorAll('.file-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    selectedFile = item.dataset.file;
+                    renderFiles();
+                    updateUI();
+                });
+            });
+        }
+
+        async function apiRequest(endpoint, method = 'GET', data = null) {
+            try {
+                const options = { method };
+                if (data) {
+                    options.headers = { 'Content-Type': 'application/json' };
+                    options.body = JSON.stringify(data);
+                }
+                const response = await fetch(endpoint, options);
+                return await response.json();
+            } catch (e) {
+                console.error('API请求失败:', e);
+                return null;
+            }
+        }
+
+        async function loadFiles() {
+            try {
+                const result = await apiRequest('/api/files');
+                if (result) {
+                    files = result.files || [];
+                    const fileNames = files.map(f => f.name);
+                    if (selectedFile && !fileNames.includes(selectedFile)) {
+                        selectedFile = null;
+                    }
+                    if (files.length === 1 && !selectedFile) {
+                        selectedFile = files[0].name;
+                    }
+                    renderFiles();
+                    updateUI();
+                }
+            } catch (e) {
+                console.error('加载文件列表失败:', e);
+            }
+        }
+
+        async function loadDevices() {
+            const result = await apiRequest('/api/devices');
+            if (result && result.devices) {
+                const select = document.getElementById('audio-device');
+                select.innerHTML = result.devices.map(d => 
+                    `<option value="${d.id}">${d.name}</option>`
+                ).join('');
+            }
+        }
+
+        async function pollState() {
+            const result = await apiRequest('/api/state');
+            if (result) {
+                state = { ...state, ...result };
+                updateUI();
+            }
+            document.getElementById('connection-status').className = 'connection-status connected';
+            document.getElementById('connection-text').textContent = '已连接';
+        }
+
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById('connection-status').className = 'connection-status connected';
+                document.getElementById('connection-text').textContent = '已连接';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('connection-status').className = 'connection-status disconnected';
+                document.getElementById('connection-text').textContent = '未连接';
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'state_update') {
+                        state = { ...state, ...msg.data };
+                        updateUI();
+                    }
+                } catch (e) {
+                    console.error('解析消息失败:', e);
+                }
+            };
+        }
+
+        function applySettings() {
+            document.querySelectorAll('.mode-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.mode === mode);
+            });
+            document.getElementById('duration-mode').style.display = mode === 'duration' ? 'block' : 'none';
+            document.getElementById('endtime-mode').style.display = mode === 'endtime' ? 'block' : 'none';
+            
+            document.getElementById('duration-hours').value = savedSettings.hours;
+            document.getElementById('duration-minutes').value = savedSettings.minutes;
+            document.getElementById('end-time').value = savedSettings.endTime;
+            document.getElementById('volume-slider').value = savedSettings.volume;
+            document.getElementById('volume-value').textContent = savedSettings.volume + '%';
+        }
+
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                mode = this.dataset.mode;
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('duration-mode').style.display = mode === 'duration' ? 'block' : 'none';
+                document.getElementById('endtime-mode').style.display = mode === 'endtime' ? 'block' : 'none';
+                
+                saveSettings({
+                    ...loadSettings(),
+                    mode: mode
+                });
+            });
+        });
+
+        document.getElementById('refresh-files').addEventListener('click', loadFiles);
+
+        let volumeDebounceTimer = null;
+
+        document.querySelectorAll('.quick-vol-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const vol = parseInt(this.dataset.vol);
+                document.getElementById('volume-slider').value = vol;
+                document.getElementById('volume-value').textContent = vol + '%';
+                state.volume = vol;
+
+                document.querySelectorAll('.quick-vol-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                saveSettings({
+                    ...loadSettings(),
+                    volume: vol
+                });
+
+                if (volumeDebounceTimer) clearTimeout(volumeDebounceTimer);
+                volumeDebounceTimer = setTimeout(async () => {
+                    await apiRequest('/api/volume', 'POST', { volume: vol });
+                }, 200);
+            });
+        });
+
+        document.getElementById('volume-slider').addEventListener('input', function() {
+            const volume = parseInt(this.value);
+            document.getElementById('volume-value').textContent = volume + '%';
+            state.volume = volume;
+            
+            saveSettings({
+                ...loadSettings(),
+                volume: volume
+            });
+
+            if (volumeDebounceTimer) clearTimeout(volumeDebounceTimer);
+            volumeDebounceTimer = setTimeout(async () => {
+                await apiRequest('/api/volume', 'POST', { volume: volume });
+            }, 200);
+        });
+
+        let systemVolumeDebounceTimer = null;
+
+        document.getElementById('system-volume-slider').addEventListener('input', function() {
+            const volume = parseInt(this.value);
+            document.getElementById('system-volume-value').textContent = volume + '%';
+            state.systemVolume = volume;
+
+            if (systemVolumeDebounceTimer) clearTimeout(systemVolumeDebounceTimer);
+            systemVolumeDebounceTimer = setTimeout(async () => {
+                await apiRequest('/api/system-volume', 'POST', { volume: volume });
+            }, 300);
+        });
+
+        // 音量 ± 精调按钮：步长 1，触发滑块的 input 事件以复用防抖提交逻辑
+        document.querySelectorAll('.vol-step-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const slider = document.getElementById(this.dataset.target);
+                if (!slider) return;
+                const current = parseInt(slider.value) || 0;
+                const next = Math.min(100, Math.max(0, current + parseInt(this.dataset.step)));
+                if (next === current) return;
+                slider.value = next;
+                slider.dispatchEvent(new Event('input'));
+            });
+        });
+
+        async function loadSystemVolume() {
+            const result = await apiRequest('/api/system-volume');
+            if (result && result.systemVolume !== undefined) {
+                state.systemVolume = result.systemVolume;
+                updateUI();
+            }
+        }
+
+        document.getElementById('duration-hours').addEventListener('change', function() {
+            saveSettings({
+                ...loadSettings(),
+                hours: parseInt(this.value) || 0
+            });
+        });
+
+        document.getElementById('duration-minutes').addEventListener('change', function() {
+            saveSettings({
+                ...loadSettings(),
+                minutes: parseInt(this.value) || 0
+            });
+        });
+
+        document.getElementById('end-time').addEventListener('change', function() {
+            saveSettings({
+                ...loadSettings(),
+                endTime: this.value
+            });
+        });
+
+        document.getElementById('play-btn').addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            let targetDuration = null;
+            if (mode === 'duration') {
+                const hours = parseInt(document.getElementById('duration-hours').value) || 0;
+                const minutes = parseInt(document.getElementById('duration-minutes').value) || 0;
+                targetDuration = hours * 3600 + minutes * 60;
+                if (targetDuration === 0) {
+                    alert('请设置播放时长');
+                    return;
+                }
+            } else {
+                const endTimeStr = document.getElementById('end-time').value;
+                if (!endTimeStr) {
+                    alert('请选择结束时间');
+                    return;
+                }
+                
+                const [endHour, endMinute] = endTimeStr.split(':').map(Number);
+                const now = new Date();
+                const endTime = new Date();
+                endTime.setHours(endHour, endMinute, 0, 0);
+                
+                if (endTime <= now) {
+                    endTime.setDate(endTime.getDate() + 1);
+                }
+                
+                targetDuration = Math.floor((endTime - now) / 1000);
+                if (targetDuration <= 0) {
+                    alert('结束时间无效');
+                    return;
+                }
+            }
+
+            const device = document.getElementById('audio-device').value;
+            const volume = state.volume;
+
+            const result = await apiRequest('/api/play', 'POST', {
+                file: selectedFile,
+                targetDuration: targetDuration > 0 ? targetDuration : null,
+                audioDevice: device,
+                volume: volume,
+            });
+
+            if (result && result.success) {
+                state.targetDuration = targetDuration > 0 ? targetDuration : null;
+                updateUI();
+            } else {
+                alert('播放失败: ' + (result?.error || '未知错误'));
+            }
+        });
+
+        document.getElementById('stop-btn').addEventListener('click', async () => {
+            await apiRequest('/api/stop', 'POST');
+            // Don't set isPlaying=false here; wait for fade-out to complete via WebSocket
+            updateUI();
+        });
+
+        applySettings();
+        setInterval(pollState, 2000);
+        connectWebSocket();
+        loadFiles();
+        loadDevices();
+        loadSystemVolume();
+
+        // ===== 移动端布局与折叠 =====
+        function updateFileToggleLabel() {
+            try {
+                const label = document.getElementById('file-toggle-label');
+                if (label) {
+                    label.textContent = selectedFile || state.currentFile || '选择文件';
+                }
+            } catch (e) {
+                console.error('更新文件折叠标签失败:', e);
+            }
+        }
+
+        const mobileMediaQuery = window.matchMedia('(max-width: 768px)');
+        let mobileLayoutApplied = false;
+
+        function applyMobileLayout() {
+            const isMobile = mobileMediaQuery.matches;
+            if (isMobile === mobileLayoutApplied) return;
+            try {
+                const statsGrid = document.querySelector('.play-card .stats-grid');
+                const progressInfo = document.getElementById('progress-info');
+                const playBtnGroup = document.querySelector('.btn-group');
+                const sysVolSection = document.querySelector('.system-volume-section');
+                const playVolSection = document.querySelector('.play-volume-section');
+                const modeSelector = document.querySelector('.settings-card .mode-selector');
+                const settingsCollapseBody = document.querySelector('.settings-card .collapse-body');
+                if (!statsGrid || !progressInfo || !playBtnGroup || !sysVolSection || !playVolSection || !modeSelector || !settingsCollapseBody) return;
+                if (isMobile) {
+                    // 目标顺序：进度/按钮组 → 系统音量 → 播放音量（音量上移到首屏）
+                    statsGrid.insertAdjacentElement('afterend', progressInfo);
+                    progressInfo.insertAdjacentElement('afterend', playBtnGroup);
+                    playBtnGroup.insertAdjacentElement('afterend', sysVolSection);
+                    sysVolSection.insertAdjacentElement('afterend', playVolSection);
+                } else {
+                    // 恢复顺序：系统音量 → 播放音量 → mode-selector；恢复锚点依赖 mode-selector 位于 collapse-body 内
+                    settingsCollapseBody.insertAdjacentElement('afterend', progressInfo);
+                    progressInfo.insertAdjacentElement('afterend', playBtnGroup);
+                    modeSelector.insertAdjacentElement('beforebegin', playVolSection);
+                    playVolSection.insertAdjacentElement('beforebegin', sysVolSection);
+                }
+                mobileLayoutApplied = isMobile;
+            } catch (e) {
+                console.error('移动端布局切换失败:', e);
+            }
+        }
+
+        function initCollapseToggle(toggleId, cardSelector) {
+            try {
+                const toggle = document.getElementById(toggleId);
+                const card = document.querySelector(cardSelector);
+                if (!toggle || !card) return;
+                toggle.addEventListener('click', () => {
+                    try {
+                        const expanded = card.classList.toggle('expanded');
+                        toggle.classList.toggle('expanded', expanded);
+                        toggle.setAttribute('aria-expanded', String(expanded));
+                    } catch (e) {
+                        console.error('折叠切换失败:', e);
+                    }
+                });
+            } catch (e) {
+                console.error('初始化折叠条失败:', e);
+            }
+        }
+
+        initCollapseToggle('file-toggle', '.file-card');
+        initCollapseToggle('settings-toggle', '.settings-card');
+
+        if (mobileMediaQuery.addEventListener) {
+            mobileMediaQuery.addEventListener('change', applyMobileLayout);
+        } else if (mobileMediaQuery.addListener) {
+            mobileMediaQuery.addListener(applyMobileLayout);
+        }
+
+        applyMobileLayout();
+    </script>
+</body>
+</html>

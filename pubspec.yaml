@@ -1,0 +1,34 @@
+name: audio_player
+description: "局域网音频播放器安卓服务端 - 内嵌 HTTP/WebSocket 服务器与播放引擎，手机浏览器遥控"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # 内嵌服务器（替代 Node express + ws）
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
+  shelf_web_socket: ^2.0.0
+
+  # 播放引擎（替代 PowerShell MediaPlayer）+ 前台服务/媒体通知
+  just_audio: ^0.9.40
+  just_audio_background: ^0.0.1-beta.15
+
+  # 音量记忆
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/web/control.html

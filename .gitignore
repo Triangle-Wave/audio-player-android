@@ -1,0 +1,56 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# 发布产物:APK 不入库(体积大,且每个构建都会污染历史)
+*.apk
+
+# 构建日志与自增 build 号(build_apk.sh 生成)
+build_log.txt
+.build_number
+
+# CI 与本地构建环境文件
+/android/local.properties
+/logs/
+/AGENTS.md
+/android/.gradle/
+/android/app/.cxx/
+/android/captures/
+*.jks
+*.keystore
+key.properties
