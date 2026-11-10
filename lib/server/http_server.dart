@@ -11,6 +11,7 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../media/library_scanner.dart';
+import '../player/bluetooth_bridge.dart';
 import '../player/playback_service.dart';
 import '../player/system_volume_bridge.dart';
 import 'state_hub.dart';
@@ -24,6 +25,8 @@ class ControlServer {
     required this.playback,
     required this.systemVolume,
     required this.saveVolume,
+    required this.saveBluetoothPrompt,
+    required this.bluetooth,
   });
 
   final PlayerState state;
@@ -32,9 +35,14 @@ class ControlServer {
   final PlaybackService playback;
   final SystemVolumeBridge systemVolume;
   final Future<void> Function(int volume) saveVolume;
+  final Future<void> Function(bool value) saveBluetoothPrompt;
+  final BluetoothBridge bluetooth;
 
   HttpServer? _bound;
   Uint8List? _controlPage;
+
+  /// 蓝牙权限是否已尝试申请（避免状态查询接口反复触发系统弹窗）
+  bool _bluetoothPermRequested = false;
 
   bool get isRunning => _bound != null;
 
@@ -54,6 +62,9 @@ class ControlServer {
       ..post('/api/stop', _guard(_apiStop))
       ..post('/api/volume', _guard(_apiSetVolume))
       ..post('/api/system-volume', _guard(_apiSetSystemVolume))
+      ..post('/api/play-options', _guard(_apiPlayOptions))
+      ..post('/api/bluetooth/panel', _guard(_apiBluetoothPanel))
+      ..get('/api/bluetooth/state', _guard(_apiBluetoothState))
       ..mount('/uploads/', _guard(_serveUploads));
 
     // WebSocket 升级请求走根路径（前端 new WebSocket(ws://host/)），
@@ -269,5 +280,52 @@ class ControlServer {
     state.systemVolume = clamped;
     hub.broadcast();
     return _json(<String, dynamic>{'success': true, 'systemVolume': clamped});
+  }
+
+  /// 播放选项：目前仅「播放结束提示关闭蓝牙」开关
+  Future<Response> _apiPlayOptions(Request request) async {
+    final body = await _readJsonBody(request);
+    if (body == null) return _json(<String, dynamic>{'error': '无效的请求体'}, 400);
+
+    final value = body['bluetoothPromptAfterPlay'];
+    if (value is! bool) {
+      return _json(
+          <String, dynamic>{'error': 'bluetoothPromptAfterPlay 必须为布尔值'}, 400);
+    }
+
+    state.bluetoothPromptAfterPlay = value;
+    try {
+      await saveBluetoothPrompt(value);
+    } catch (e) {
+      debugPrint('[设置] 蓝牙提示开关持久化失败: $e');
+    }
+    hub.broadcast();
+    return _json(<String, dynamic>{
+      'success': true,
+      'bluetoothPromptAfterPlay': state.bluetoothPromptAfterPlay,
+    });
+  }
+
+  /// 打开系统蓝牙面板/设置页（Android 13+ 无法程序化关闭蓝牙）
+  Future<Response> _apiBluetoothPanel(Request request) async {
+    final opened = await bluetooth.openPanel();
+    return _json(<String, dynamic>{'success': true, 'opened': opened});
+  }
+
+  /// 蓝牙开关状态。Android 没有公开 API 读取 BLUETOOTH_CONNECT 的授予状态，
+  /// 未授权或无适配器时原生侧返回 null；因此以「能读到确定的开关值」
+  /// 近似 permissionGranted，读不到时再请求一次权限（已授予则不弹窗）。
+  Future<Response> _apiBluetoothState(Request request) async {
+    final enabled = await bluetooth.isEnabled();
+    var permissionGranted = enabled != null;
+    // 未取得确定值时请求一次权限；加标记避免网页轮询时反复弹窗
+    if (!permissionGranted && !_bluetoothPermRequested) {
+      _bluetoothPermRequested = true;
+      permissionGranted = await bluetooth.ensurePermission();
+    }
+    return _json(<String, dynamic>{
+      'enabled': enabled,
+      'permissionGranted': permissionGranted,
+    });
   }
 }

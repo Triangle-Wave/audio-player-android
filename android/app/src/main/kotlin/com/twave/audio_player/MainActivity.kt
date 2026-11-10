@@ -2,6 +2,7 @@ package com.twave.audio_player
 
 import android.Manifest
 import android.app.Activity
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -22,9 +23,11 @@ class MainActivity : AudioServiceActivity() {
     private val permRequestCode = 31901
     private val manageStorageRequestCode = 31902
     private val pickDirRequestCode = 31903
+    private val bluetoothPermRequestCode = 31904
     private var pendingPermResult: MethodChannel.Result? = null
     private var pendingManageResult: MethodChannel.Result? = null
     private var pendingPickDirResult: MethodChannel.Result? = null
+    private var pendingBluetoothPermResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -45,6 +48,9 @@ class MainActivity : AudioServiceActivity() {
                         "ensureStoragePermission" -> ensureStoragePermission(result)
                         "ensureManageStorage" -> ensureManageStorage(result)
                         "pickDirectory" -> pickDirectory(result)
+                        "openBluetoothPanel" -> openBluetoothPanel(result)
+                        "isBluetoothEnabled" -> result.success(currentBluetoothEnabled())
+                        "ensureBluetoothPermission" -> ensureBluetoothPermission(result)
                         else -> result.notImplemented()
                     }
                 } catch (e: Exception) {
@@ -99,13 +105,24 @@ class MainActivity : AudioServiceActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != permRequestCode) return
-        val result = pendingPermResult
-        pendingPermResult = null
-        if (result == null) return
-        val granted = grantResults.isNotEmpty() &&
-            grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-        result.success(granted)
+        when (requestCode) {
+            permRequestCode -> {
+                val result = pendingPermResult
+                pendingPermResult = null
+                if (result == null) return
+                val granted = grantResults.isNotEmpty() &&
+                    grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                result.success(granted)
+            }
+            bluetoothPermRequestCode -> {
+                val result = pendingBluetoothPermResult
+                pendingBluetoothPermResult = null
+                if (result == null) return
+                val granted = grantResults.isNotEmpty() &&
+                    grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                result.success(granted)
+            }
+        }
     }
 
     private fun hasAllFilesAccess(): Boolean =
@@ -137,6 +154,67 @@ class MainActivity : AudioServiceActivity() {
 
     private fun debugFallback(e: Exception) {
         io.flutter.Log.e("MainActivity", "直达所有文件访问设置页失败，改用总开关页", e)
+    }
+
+    // ---------- 蓝牙 ----------
+
+    // 打开系统蓝牙面板（Android 13+）或蓝牙设置页。Android 13 起应用无法
+    // 程序化关闭蓝牙，只能把用户引导到系统界面自行关闭
+    private fun openBluetoothPanel(result: MethodChannel.Result) {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Intent(Settings.Panel.ACTION_BLUETOOTH)
+        } else {
+            Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            io.flutter.Log.e("MainActivity", "打开蓝牙面板失败", e)
+            result.success(false)
+        }
+    }
+
+    // 读取蓝牙开关；无适配器或未授予 BLUETOOTH_CONNECT 时返回 null（未知）
+    private fun currentBluetoothEnabled(): Boolean? {
+        return try {
+            val manager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = manager?.adapter ?: return null
+            adapter.isEnabled
+        } catch (e: SecurityException) {
+            io.flutter.Log.w("MainActivity", "读取蓝牙状态缺少权限: ${e.message}")
+            null
+        } catch (e: Exception) {
+            io.flutter.Log.e("MainActivity", "读取蓝牙状态失败", e)
+            null
+        }
+    }
+
+    // 申请 BLUETOOTH_CONNECT（Android 12+）；低版本无需该权限，直接回 true
+    private fun ensureBluetoothPermission(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            result.success(true)
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(true)
+            return
+        }
+        pendingBluetoothPermResult?.success(false)
+        pendingBluetoothPermResult = result
+        try {
+            requestPermissions(
+                arrayOf(Manifest.permission.BLUETOOTH_CONNECT),
+                bluetoothPermRequestCode
+            )
+        } catch (e: Exception) {
+            pendingBluetoothPermResult = null
+            io.flutter.Log.e("MainActivity", "申请蓝牙权限失败", e)
+            result.success(false)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

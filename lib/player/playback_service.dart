@@ -12,16 +12,27 @@ const int kFadeDurationSeconds = 10;
 /// 播放引擎：循环播放直到目标时长，最后 10 秒线性淡出；手动停止同样走淡出。
 /// 控制循环为 100ms 轮询（对应 Node 版内嵌 PowerShell 的轮询循环）。
 class PlaybackService {
-  PlaybackService({required this.state, required this.onBroadcast});
+  PlaybackService({
+    required this.state,
+    required this.onBroadcast,
+    required this.onPlaybackEnded,
+  });
 
   final PlayerState state;
   final void Function() onBroadcast;
+
+  /// 播放结束通知：reason 为 'timer' 表示定时时长到达（手动停止、
+  /// 自然播完、被新播放打断均不回调）
+  final void Function(String reason) onPlaybackEnded;
 
   AudioPlayer? _player;
   Timer? _ticker;
   DateTime? _startTime;
   bool _stopRequested = false;
   Completer<void>? _playbackDone;
+
+  /// 播放任务序号：新任务开始时自增，旧任务据此判断自己已被取代
+  int _runSeq = 0;
 
   bool get isActive => state.isPlaying || state.isFadingOut;
 
@@ -64,8 +75,9 @@ class PlaybackService {
     });
 
     _playbackDone = Completer<void>();
+    final runSeq = ++_runSeq;
     unawaited(
-      _run(filePath, fileName).whenComplete(() async {
+      _run(filePath, fileName, runSeq).whenComplete(() async {
         await _cleanup();
         final done = _playbackDone;
         if (done != null && !done.isCompleted) done.complete();
@@ -90,7 +102,7 @@ class PlaybackService {
     // 超过淡出时长的强制兜底在控制循环内执行（对应 forceKillTimer）
   }
 
-  Future<void> _run(String filePath, String fileName) async {
+  Future<void> _run(String filePath, String fileName, int runSeq) async {
     AudioPlayer? player;
     try {
       player = AudioPlayer();
@@ -208,6 +220,24 @@ class PlaybackService {
       }
       debugPrint('[播放] 结束：已播 ${_elapsedSeconds.toStringAsFixed(1)} 秒，'
           '循环 $loopCount 次');
+
+      // 定时结束判定：目标时长已到达、非手动停止（含强制兜底）、
+      // 且本轮任务未被新播放取代（runSeq 已被刷新）。
+      // 提前淡出使 shouldStop 置位的定时结束同样满足该条件。
+      var timerNotified = false;
+      final targetSec = state.targetDuration;
+      final timerReached = targetSec != null &&
+          _elapsedSeconds >= targetSec &&
+          !_stopRequested &&
+          runSeq == _runSeq;
+      if (timerReached && !timerNotified) {
+        timerNotified = true;
+        try {
+          onPlaybackEnded('timer');
+        } catch (e, st) {
+          debugPrint('[播放] 结束通知回调异常: $e\n$st');
+        }
+      }
     } catch (e, st) {
       debugPrint('[播放] 播放异常: $e\n$st');
     } finally {

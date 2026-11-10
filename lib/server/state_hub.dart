@@ -14,6 +14,7 @@ class PlayerState {
   String audioDevice = 'default';
   int volume = 100;
   int systemVolume = 100;
+  bool bluetoothPromptAfterPlay = false;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'isPlaying': isPlaying,
@@ -25,6 +26,7 @@ class PlayerState {
         'audioDevice': audioDevice,
         'volume': volume,
         'systemVolume': systemVolume,
+        'bluetoothPromptAfterPlay': bluetoothPromptAfterPlay,
       };
 }
 
@@ -68,6 +70,30 @@ class StateHub {
         client.sink.add(message);
       } catch (e) {
         debugPrint('[WS] 推送失败，移除客户端: $e');
+        _clients.remove(client);
+      }
+    }
+  }
+
+  /// 广播一次性事件（非状态快照），如播放结束通知。
+  /// 发送 `{"type": type, "data": data}`，data 缺省为空对象。
+  void broadcastEvent(String type, [Map<String, dynamic>? data]) {
+    if (_clients.isEmpty) return;
+    String message;
+    try {
+      message = jsonEncode(<String, dynamic>{
+        'type': type,
+        'data': data ?? <String, dynamic>{},
+      });
+    } catch (e) {
+      debugPrint('[WS] 事件序列化失败 type=$type: $e');
+      return;
+    }
+    for (final client in List.of(_clients)) {
+      try {
+        client.sink.add(message);
+      } catch (e) {
+        debugPrint('[WS] 事件推送失败，移除客户端: $e');
         _clients.remove(client);
       }
     }

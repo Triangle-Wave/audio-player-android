@@ -619,6 +619,178 @@
             transform: scale(0.98);
         }
 
+        /* ===== 播放结束提示开关 ===== */
+        .switch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            margin-bottom: 16px;
+        }
+
+        .switch-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .switch-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            line-height: 1.3;
+        }
+
+        .switch-desc {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            flex-shrink: 0;
+            width: 48px;
+            height: 28px;
+        }
+
+        .switch input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        .switch-slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 28px;
+            transition: background 0.25s ease, border-color 0.25s ease;
+        }
+
+        .switch-slider::before {
+            content: '';
+            position: absolute;
+            left: 3px;
+            top: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+            transition: transform 0.25s ease;
+        }
+
+        .switch input:checked + .switch-slider {
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            border-color: transparent;
+        }
+
+        .switch input:checked + .switch-slider::before {
+            transform: translateX(20px);
+        }
+
+        .switch input:focus-visible + .switch-slider {
+            outline: 2px solid #00d4ff;
+            outline-offset: 2px;
+        }
+
+        .btn-bluetooth {
+            grid-column: 1 / -1;
+            padding: 12px;
+            font-size: 13px;
+            background: rgba(0, 212, 255, 0.1);
+            color: #00d4ff;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-bluetooth:hover {
+            background: rgba(0, 212, 255, 0.18);
+        }
+
+        /* ===== 播放结束弹窗 ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(6, 10, 25, 0.72);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 360px;
+            padding: 22px;
+            background: linear-gradient(135deg, rgba(32, 44, 82, 0.98), rgba(18, 26, 52, 0.98));
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            transform: translateY(10px) scale(0.98);
+            transition: transform 0.2s ease;
+        }
+
+        .modal-overlay.visible .modal {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .modal-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 14px;
+            background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+            color: #fff;
+            border-radius: 12px;
+        }
+
+        .modal-btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
         /* ===== 折叠条（默认隐藏，仅移动端显示）===== */
         .collapse-toggle {
             display: none;
@@ -824,6 +996,30 @@
                 width: 26px;
                 height: 26px;
             }
+
+            .btn-group .btn-bluetooth {
+                grid-column: 1 / -1;
+                padding: 12px;
+                font-size: 13px;
+            }
+
+            .switch-desc {
+                font-size: 10px;
+            }
+
+            .modal {
+                padding: 20px;
+                border-radius: 18px;
+            }
+
+            .modal-title {
+                font-size: 16px;
+            }
+
+            .modal-actions .modal-btn {
+                padding: 14px;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
@@ -954,6 +1150,17 @@
                 </select>
             </div>
 
+            <div class="switch-row">
+                <div class="switch-text">
+                    <div class="switch-title">播放结束提示关闭蓝牙</div>
+                    <div class="switch-desc">Android 13+ 会打开蓝牙面板，需手动关闭</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="bluetooth-prompt-toggle" aria-label="播放结束提示关闭蓝牙">
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+
             </div>
 
             <div class="progress-info" id="progress-info">
@@ -966,6 +1173,18 @@
             <div class="btn-group">
                 <button class="btn btn-primary" id="play-btn" disabled>▶ 开始播放</button>
                 <button class="btn btn-danger" id="stop-btn" disabled>⏹ 停止</button>
+                <button class="btn btn-bluetooth" id="bluetooth-btn" type="button">📶 蓝牙设置</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="bluetooth-modal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bluetooth-modal-title">
+            <div class="modal-title" id="bluetooth-modal-title">播放已结束，要关闭蓝牙吗？</div>
+            <div class="modal-text">Android 13+ 会打开系统蓝牙面板，需要手动关闭。</div>
+            <div class="modal-actions">
+                <button class="btn modal-btn" id="bluetooth-modal-open" type="button">打开蓝牙设置</button>
+                <button class="btn modal-btn modal-btn-secondary" id="bluetooth-modal-dismiss" type="button">保持开启</button>
             </div>
         </div>
     </div>
@@ -987,7 +1206,8 @@
                 hours: 0,
                 minutes: 30,
                 endTime: '07:00',
-                volume: 100
+                volume: 100,
+                bluetoothPromptAfterPlay: false
             };
         }
 
@@ -1001,6 +1221,11 @@
 
         const savedSettings = loadSettings();
 
+        let bluetoothPromptAfterPlay = savedSettings.bluetoothPromptAfterPlay === true;
+        let bluetoothTogglePending = false;
+        let bluetoothModalOpen = false;
+        let lastPlaybackEndedHandledAt = 0;
+
         let state = {
             isPlaying: false,
             currentFile: null,
@@ -1011,6 +1236,7 @@
             volume: savedSettings.volume,
             systemVolume: 100,
             isFadingOut: false,
+            bluetoothPromptAfterPlay: bluetoothPromptAfterPlay,
         };
 
         let selectedFile = null;
@@ -1186,6 +1412,10 @@
             const result = await apiRequest('/api/state');
             if (result) {
                 state = { ...state, ...result };
+                if (typeof result.bluetoothPromptAfterPlay === 'boolean' && !bluetoothTogglePending) {
+                    bluetoothPromptAfterPlay = result.bluetoothPromptAfterPlay;
+                    syncBluetoothPromptToggle();
+                }
                 updateUI();
             }
             document.getElementById('connection-status').className = 'connection-status connected';
@@ -1213,7 +1443,15 @@
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'state_update') {
                         state = { ...state, ...msg.data };
+                        if (msg.data && typeof msg.data.bluetoothPromptAfterPlay === 'boolean' && !bluetoothTogglePending) {
+                            bluetoothPromptAfterPlay = msg.data.bluetoothPromptAfterPlay;
+                            syncBluetoothPromptToggle();
+                        }
                         updateUI();
+                    } else if (msg.type === 'playback_ended') {
+                        if (msg.data && msg.data.reason === 'timer') {
+                            handlePlaybackEnded();
+                        }
                     }
                 } catch (e) {
                     console.error('解析消息失败:', e);
@@ -1233,6 +1471,108 @@
             document.getElementById('end-time').value = savedSettings.endTime;
             document.getElementById('volume-slider').value = savedSettings.volume;
             document.getElementById('volume-value').textContent = savedSettings.volume + '%';
+            syncBluetoothPromptToggle();
+        }
+
+        function syncBluetoothPromptToggle() {
+            try {
+                const toggle = document.getElementById('bluetooth-prompt-toggle');
+                if (toggle) {
+                    toggle.checked = bluetoothPromptAfterPlay === true;
+                }
+            } catch (e) {
+                console.error('同步蓝牙提示开关失败:', e);
+            }
+        }
+
+        async function openBluetoothPanel() {
+            try {
+                const result = await apiRequest('/api/bluetooth/panel', 'POST');
+                if (!result || result.opened !== true) {
+                    alert('无法打开蓝牙设置，请在手机 App 内操作');
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                console.error('打开蓝牙设置失败:', e);
+                alert('无法打开蓝牙设置，请在手机 App 内操作');
+                return false;
+            }
+        }
+
+        function showBluetoothPromptModal() {
+            try {
+                const overlay = document.getElementById('bluetooth-modal');
+                if (!overlay) return;
+                overlay.classList.add('visible');
+                bluetoothModalOpen = true;
+            } catch (e) {
+                console.error('显示蓝牙提示弹窗失败:', e);
+            }
+        }
+
+        function hideBluetoothPromptModal() {
+            try {
+                const overlay = document.getElementById('bluetooth-modal');
+                if (overlay) {
+                    overlay.classList.remove('visible');
+                }
+            } catch (e) {
+                console.error('关闭蓝牙提示弹窗失败:', e);
+            } finally {
+                bluetoothModalOpen = false;
+            }
+        }
+
+        function handlePlaybackEnded() {
+            try {
+                if (!bluetoothPromptAfterPlay) return;
+                if (bluetoothModalOpen) return;
+                const now = Date.now();
+                if (now - lastPlaybackEndedHandledAt < 5000) return;
+                lastPlaybackEndedHandledAt = now;
+                showBluetoothPromptModal();
+            } catch (e) {
+                console.error('处理播放结束事件失败:', e);
+            }
+        }
+
+        async function applyBluetoothPromptOption(value) {
+            const previous = bluetoothPromptAfterPlay;
+            const rollback = () => {
+                bluetoothPromptAfterPlay = previous;
+                state.bluetoothPromptAfterPlay = previous;
+                saveSettings({
+                    ...loadSettings(),
+                    bluetoothPromptAfterPlay: previous
+                });
+                syncBluetoothPromptToggle();
+            };
+
+            bluetoothPromptAfterPlay = value;
+            state.bluetoothPromptAfterPlay = value;
+            bluetoothTogglePending = true;
+            saveSettings({
+                ...loadSettings(),
+                bluetoothPromptAfterPlay: value
+            });
+            syncBluetoothPromptToggle();
+
+            try {
+                const result = await apiRequest('/api/play-options', 'POST', {
+                    bluetoothPromptAfterPlay: value
+                });
+                if (!result || result.success === false) {
+                    rollback();
+                    alert('保存播放设置失败，请稍后重试');
+                }
+            } catch (e) {
+                console.error('保存播放设置失败:', e);
+                rollback();
+                alert('保存播放设置失败，请稍后重试');
+            } finally {
+                bluetoothTogglePending = false;
+            }
         }
 
         document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -1394,6 +1734,7 @@
 
             if (result && result.success) {
                 state.targetDuration = targetDuration > 0 ? targetDuration : null;
+                lastPlaybackEndedHandledAt = 0;
                 updateUI();
             } else {
                 alert('播放失败: ' + (result?.error || '未知错误'));
@@ -1406,7 +1747,37 @@
             updateUI();
         });
 
+        document.getElementById('bluetooth-prompt-toggle').addEventListener('change', function() {
+            applyBluetoothPromptOption(this.checked === true);
+        });
+
+        document.getElementById('bluetooth-btn').addEventListener('click', async () => {
+            await openBluetoothPanel();
+        });
+
+        document.getElementById('bluetooth-modal-open').addEventListener('click', async () => {
+            const opened = await openBluetoothPanel();
+            if (opened) {
+                hideBluetoothPromptModal();
+            }
+        });
+
+        document.getElementById('bluetooth-modal-dismiss').addEventListener('click', hideBluetoothPromptModal);
+
+        document.getElementById('bluetooth-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                hideBluetoothPromptModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && bluetoothModalOpen) {
+                hideBluetoothPromptModal();
+            }
+        });
+
         applySettings();
+        pollState();
         setInterval(pollState, 2000);
         connectWebSocket();
         loadFiles();

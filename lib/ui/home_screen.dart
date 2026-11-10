@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../media/library_scanner.dart';
+import '../player/bluetooth_bridge.dart';
 import '../player/playback_service.dart';
 import '../player/system_volume_bridge.dart';
 import '../server/http_server.dart';
@@ -23,9 +24,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const int _port = 31901;
   static const String _volumeKey = 'player_volume';
+  static const String _bluetoothPromptKey = 'bluetooth_prompt_after_play';
 
   final LibraryScanner _scanner = LibraryScanner();
   final PlayerState _playerState = PlayerState();
+  final BluetoothBridge _bluetoothBridge = BluetoothBridge();
 
   SystemVolumeBridge? _bridge;
   StateHub? _hub;
@@ -68,6 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final bridge = SystemVolumeBridge();
 
       _playerState.volume = prefs.getInt(_volumeKey) ?? 100;
+      _playerState.bluetoothPromptAfterPlay =
+          prefs.getBool(_bluetoothPromptKey) ?? false;
 
       // 媒体读取权限；被拒不阻断启动，仅提示（应用专属目录仍可用）
       _permissionGranted = await bridge.ensureStoragePermission();
@@ -81,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final playback = PlaybackService(
         state: _playerState,
         onBroadcast: hub.broadcast,
+        onPlaybackEnded: _handlePlaybackEnded,
       );
       final server = ControlServer(
         state: _playerState,
@@ -89,6 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
         playback: playback,
         systemVolume: bridge,
         saveVolume: (int v) => prefs.setInt(_volumeKey, v),
+        saveBluetoothPrompt: (bool v) => prefs.setBool(_bluetoothPromptKey, v),
+        bluetooth: _bluetoothBridge,
       );
 
       await server.start(port: _port);
@@ -288,6 +296,71 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       debugPrint('[设置] 定时设定恢复失败: $e');
+    }
+  }
+
+  /// 播放结束回调：先向网页端广播事件，再按开关决定是否弹窗提示关闭蓝牙
+  void _handlePlaybackEnded(String reason) {
+    _hub?.broadcastEvent('playback_ended', <String, dynamic>{'reason': reason});
+    if (reason != 'timer') return;
+    if (!_playerState.bluetoothPromptAfterPlay) return;
+    if (!mounted) return;
+    unawaited(_showBluetoothEndPrompt());
+  }
+
+  Future<void> _showBluetoothEndPrompt() async {
+    bool? openSettings;
+    try {
+      openSettings = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('播放已结束'),
+          content: const Text('播放已结束，要关闭蓝牙吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('保持开启'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('打开蓝牙设置'),
+            ),
+          ],
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('[蓝牙] 结束提示弹窗异常: $e\n$st');
+      return;
+    }
+    if (openSettings == true) await _openBluetoothPanel();
+  }
+
+  /// 打开系统蓝牙面板/设置页；Android 13+ 无法由应用直接关闭蓝牙
+  Future<void> _openBluetoothPanel() async {
+    final opened = await _bluetoothBridge.openPanel();
+    if (!opened) {
+      _toast('无法打开蓝牙面板，请在系统设置中关闭蓝牙');
+    }
+  }
+
+  /// 切换「播放结束提示关闭蓝牙」：更新状态、持久化、广播，
+  /// 开启时顺带申请蓝牙权限（Android 12+ 的 BLUETOOTH_CONNECT）
+  Future<void> _toggleBluetoothPrompt(bool value) async {
+    _playerState.bluetoothPromptAfterPlay = value;
+    if (mounted) setState(() {});
+    _hub?.broadcast();
+    final p = _prefs;
+    if (p != null) {
+      try {
+        await p.setBool(_bluetoothPromptKey, value);
+      } catch (e) {
+        debugPrint('[设置] 蓝牙提示开关持久化失败: $e');
+      }
+    }
+    if (!value) return;
+    final granted = await _bluetoothBridge.ensurePermission();
+    if (!granted && mounted) {
+      _toast('未授予蓝牙权限，结束提示无法打开蓝牙面板');
     }
   }
 
@@ -511,10 +584,23 @@ class _HomeScreenState extends State<HomeScreen> {
         : null;
 
     return _card(scheme, children: [
-      Text(st.currentFile ?? '未在播放',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis),
+      Row(
+        children: [
+          Expanded(
+            child: Text(st.currentFile ?? '未在播放',
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: _openBluetoothPanel,
+            icon: const Icon(Icons.bluetooth, size: 20),
+            tooltip: '打开蓝牙面板',
+          ),
+        ],
+      ),
       const SizedBox(height: 4),
       Text(statusText,
           style: TextStyle(
@@ -681,6 +767,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ],
+      const SizedBox(height: 2),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        value: st.bluetoothPromptAfterPlay,
+        onChanged: _toggleBluetoothPrompt,
+        title: const Text('播放结束提示关闭蓝牙',
+            style: TextStyle(fontSize: 13)),
+        subtitle: Text('Android 13+ 会打开蓝牙面板，需手动关闭',
+            style: TextStyle(
+                fontSize: 11, color: Colors.white.withAlpha(120))),
+      ),
     ]);
   }
 
