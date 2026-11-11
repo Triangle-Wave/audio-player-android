@@ -1,7 +1,7 @@
 name: audio_player
 description: "局域网音频播放器安卓服务端 - 内嵌 HTTP/WebSocket 服务器与播放引擎，手机浏览器遥控"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+1
 
 environment:
   sdk: ^3.5.4
