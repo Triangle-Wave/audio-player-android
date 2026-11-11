@@ -306,7 +306,7 @@ class ControlServer {
     });
   }
 
-  /// 打开系统蓝牙面板/设置页（Android 13+ 无法程序化关闭蓝牙）
+  /// 打开系统蓝牙设置页（应用无法程序化关闭蓝牙）
   Future<Response> _apiBluetoothPanel(Request request) async {
     final opened = await bluetooth.openPanel();
     return _json(<String, dynamic>{'success': true, 'opened': opened});

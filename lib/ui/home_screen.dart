@@ -323,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('打开蓝牙设置'),
+              child: const Text('跳到蓝牙设置页'),
             ),
           ],
         ),
@@ -335,11 +335,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (openSettings == true) await _openBluetoothPanel();
   }
 
-  /// 打开系统蓝牙面板/设置页；Android 13+ 无法由应用直接关闭蓝牙
+  /// 打开系统蓝牙设置页；应用无法直接关闭蓝牙，由用户在系统界面完成
   Future<void> _openBluetoothPanel() async {
     final opened = await _bluetoothBridge.openPanel();
     if (!opened) {
-      _toast('无法打开蓝牙面板，请在系统设置中关闭蓝牙');
+      _toast('无法打开蓝牙设置页，请在系统设置中关闭蓝牙');
     }
   }
 
@@ -360,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!value) return;
     final granted = await _bluetoothBridge.ensurePermission();
     if (!granted && mounted) {
-      _toast('未授予蓝牙权限，结束提示无法打开蓝牙面板');
+      _toast('未授予蓝牙权限，结束提示无法打开蓝牙设置页');
     }
   }
 
@@ -597,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen> {
             visualDensity: VisualDensity.compact,
             onPressed: _openBluetoothPanel,
             icon: const Icon(Icons.bluetooth, size: 20),
-            tooltip: '打开蓝牙面板',
+            tooltip: '打开蓝牙设置页',
           ),
         ],
       ),
@@ -775,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onChanged: _toggleBluetoothPrompt,
         title: const Text('播放结束提示关闭蓝牙',
             style: TextStyle(fontSize: 13)),
-        subtitle: Text('Android 13+ 会打开蓝牙面板，需手动关闭',
+        subtitle: Text('播放结束将跳转到蓝牙设置页，需手动关闭',
             style: TextStyle(
                 fontSize: 11, color: Colors.white.withAlpha(120))),
       ),

@@ -3,19 +3,19 @@ import 'package:flutter/services.dart';
 
 /// 蓝牙桥接：与 MainActivity.kt 的 MethodChannel("audio_player/native") 对应。
 ///
-/// Android 13（API 33）起应用无法程序化关闭蓝牙（BluetoothAdapter.disable()
-/// 恒返回 false），因此「关闭蓝牙」统一实现为打开系统蓝牙面板或设置页，
+/// 应用无法程序化关闭蓝牙，
+/// 因此「关闭蓝牙」统一实现为打开系统蓝牙设置页，
 /// 由用户在系统界面完成关闭动作。
 class BluetoothBridge {
   static const MethodChannel _channel = MethodChannel('audio_player/native');
 
-  /// 打开系统蓝牙面板/设置页；调用失败返回 false
+  /// 打开系统蓝牙设置页；调用失败返回 false
   Future<bool> openPanel() async {
     try {
       final opened = await _channel.invokeMethod<bool>('openBluetoothPanel');
       return opened ?? false;
     } catch (e) {
-      debugPrint('[蓝牙] 打开系统面板失败: $e');
+      debugPrint('[蓝牙] 打开系统蓝牙设置页失败: $e');
       return false;
     }
   }

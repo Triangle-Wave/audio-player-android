@@ -158,20 +158,15 @@ class MainActivity : AudioServiceActivity() {
 
     // ---------- 蓝牙 ----------
 
-    // 打开系统蓝牙面板（Android 13+）或蓝牙设置页。Android 13 起应用无法
-    // 程序化关闭蓝牙，只能把用户引导到系统界面自行关闭
+    // 打开系统蓝牙设置页，由用户在系统界面关闭蓝牙
     private fun openBluetoothPanel(result: MethodChannel.Result) {
-        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Intent(Settings.Panel.ACTION_BLUETOOTH)
-        } else {
-            Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
-        }
+        val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             startActivity(intent)
             result.success(true)
         } catch (e: Exception) {
-            io.flutter.Log.e("MainActivity", "打开蓝牙面板失败", e)
+            io.flutter.Log.e("MainActivity", "打开蓝牙设置页失败", e)
             result.success(false)
         }
     }

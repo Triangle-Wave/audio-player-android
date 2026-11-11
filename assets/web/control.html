@@ -1153,7 +1153,7 @@
             <div class="switch-row">
                 <div class="switch-text">
                     <div class="switch-title">播放结束提示关闭蓝牙</div>
-                    <div class="switch-desc">Android 13+ 会打开蓝牙面板，需手动关闭</div>
+                    <div class="switch-desc">播放结束将跳转到蓝牙设置页，需手动关闭</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="bluetooth-prompt-toggle" aria-label="播放结束提示关闭蓝牙">
@@ -1173,7 +1173,7 @@
             <div class="btn-group">
                 <button class="btn btn-primary" id="play-btn" disabled>▶ 开始播放</button>
                 <button class="btn btn-danger" id="stop-btn" disabled>⏹ 停止</button>
-                <button class="btn btn-bluetooth" id="bluetooth-btn" type="button">📶 蓝牙设置</button>
+                <button class="btn btn-bluetooth" id="bluetooth-btn" type="button">📶 蓝牙设置页</button>
             </div>
         </div>
     </div>
@@ -1181,9 +1181,9 @@
     <div class="modal-overlay" id="bluetooth-modal">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bluetooth-modal-title">
             <div class="modal-title" id="bluetooth-modal-title">播放已结束，要关闭蓝牙吗？</div>
-            <div class="modal-text">Android 13+ 会打开系统蓝牙面板，需要手动关闭。</div>
+            <div class="modal-text">播放结束将跳转到系统蓝牙设置页，需要手动关闭。</div>
             <div class="modal-actions">
-                <button class="btn modal-btn" id="bluetooth-modal-open" type="button">打开蓝牙设置</button>
+                <button class="btn modal-btn" id="bluetooth-modal-open" type="button">跳到蓝牙设置页</button>
                 <button class="btn modal-btn modal-btn-secondary" id="bluetooth-modal-dismiss" type="button">保持开启</button>
             </div>
         </div>
@@ -1489,13 +1489,13 @@
             try {
                 const result = await apiRequest('/api/bluetooth/panel', 'POST');
                 if (!result || result.opened !== true) {
-                    alert('无法打开蓝牙设置，请在手机 App 内操作');
+                    alert('无法打开蓝牙设置页，请在手机 App 内操作');
                     return false;
                 }
                 return true;
             } catch (e) {
-                console.error('打开蓝牙设置失败:', e);
-                alert('无法打开蓝牙设置，请在手机 App 内操作');
+                console.error('打开蓝牙设置页失败:', e);
+                alert('无法打开蓝牙设置页，请在手机 App 内操作');
                 return false;
             }
         }
